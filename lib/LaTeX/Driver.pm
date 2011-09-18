@@ -9,8 +9,8 @@
 #   Andrew Ford <a.ford@ford-mason.co.uk>  (current maintainer)
 #
 # COPYRIGHT
-#   Copyright (C) 2009 Ford & Mason Ltd.   All Rights Reserved.
-#   Copyright (C) 2006-2007 Andrew Ford.   All Rights Reserved.
+#   Copyright (C) 2009-2011 Ford & Mason Ltd.  All Rights Reserved.
+#   Copyright (C) 2006-2007 Andrew Ford.  All Rights Reserved.
 #   Portions Copyright (C) 1996-2006 Andy Wardley.  All Rights Reserved.
 #
 #   This module is free software; you can redistribute it and/or
@@ -21,7 +21,7 @@
 #
 #   * Extracted from the Template::Latex module (AF, 2007-09-10)
 #
-#   $Id: Driver.pm 76 2009-01-19 13:39:01Z andrew $
+#   $Id: Driver.pm 81 2011-09-18 09:19:03Z andrew $
 #========================================================================
 
 package LaTeX::Driver;
@@ -30,19 +30,21 @@ use strict;
 use warnings;
 
 use base 'Class::Accessor';
-use Cwd;                        # from PathTools
-use English;                    # standard Perl class
+use Cwd;                                # from PathTools
+use English qw( -no_match_vars );       # standard Perl class
 use Exception::Class ( 'LaTeX::Driver::Exception' );
-use File::Copy;                 # standard Perl class
-use File::Compare;              # standard Perl class
-use File::Path;                 # standard Perl class
+use File::Copy;                         # standard Perl class
+use File::Compare;                      # standard Perl class
+use File::Path;                         # standard Perl class
 use File::Slurp;
 use File::Spec;                 # from PathTools
 use IO::File;                   # from IO
 
-our $VERSION = 0.08;
+use constant DEFAULT_MAXRUNS => 10;
 
-__PACKAGE__->mk_accessors( qw( basename basedir basepath options tmpdir
+our $VERSION = 0.10;
+
+__PACKAGE__->mk_accessors( qw( basename basedir basepath options
                                source output tmpdir format
                                formatter preprocessors postprocessors _program_path
                                maxruns extraruns stats texinputs_path
@@ -60,8 +62,8 @@ eval { require LaTeX::Driver::Paths };
 our @PROGRAM_NAMES = qw(latex pdflatex bibtex makeindex dvips dvipdfm ps2pdf pdf2ps);
 our %program_path;
 
-map { $program_path{$_} = $LaTeX::Driver::Paths::program_path{$_} || "/usr/bin/$_" } @PROGRAM_NAMES;
-
+$program_path{$_} = $LaTeX::Driver::Paths::program_path{$_} || "/usr/bin/$_"
+    for @PROGRAM_NAMES;
 
 our @LOGFILE_EXTS = qw( log blg ilg );
 our @TMPFILE_EXTS = qw( aux log lot toc bbl ind idx cit cbk ibk );
@@ -97,7 +99,7 @@ sub new {
     my $class = shift;
     my $options = ref $_[0] ? shift : { @_ };
     my ($volume, $basedir, $basename, $basepath, $orig_ext, $cleanup);
-    my ($formatter, @postprocessors, %path);
+    my ($formatter, @postprocessors);
 
     $DEBUG       = $options->{DEBUG} || 0;
     $DEBUGPREFIX = $options->{DEBUGPREFIX} if exists $options->{DEBUGPREFIX};
@@ -123,7 +125,7 @@ sub new {
         $source =~ s/(\.tex)$//;
         $orig_ext = $1;
         $class->throw("source file ${source}.tex does not exist")
-            unless -f $source or -f $source . ".tex";
+            unless -f $source or -f "${source}.tex";
     }
 
 
@@ -167,9 +169,9 @@ sub new {
     my $tmpdir = $options->{tmpdir};
     if ($tmpdir or ref $source) {
         $basedir = $class->_setup_tmpdir($tmpdir);
-        $cleanup = 'rmdir' if (!defined($tmpdir) or ($tmpdir eq "1"));
+        $cleanup = 'rmdir' if ((!defined($tmpdir)) or ($tmpdir eq "1"));
         if (ref $source) {
-            $basename = $DEFAULT_DOCNAME; 
+            $basename = $DEFAULT_DOCNAME;
             $basepath = File::Spec->catfile($basedir, $basename);
             write_file($basepath . ".tex", $source)
                 or $class->throw("cannot create temporary latex file");
@@ -177,9 +179,9 @@ sub new {
         else {
             ($basename = $source) =~ s{.*/}{};
             $basepath = File::Spec->catfile($basedir, $basename);
-            copy("$source$orig_ext", $basepath . ".tex")
+            copy("$source$orig_ext", "${basepath}.tex")
                 or $class->throw("cannot copy $source$orig_ext to temporary directory");
-            $output  ||= $source . '.' . $format;
+            $output  ||= "${source}.$format";
         }
     }
 
@@ -226,15 +228,15 @@ sub new {
                                  output         => $output,
                                  cleanup        => $cleanup || '',
                                  options        => $options,
-                                 maxruns        => $options->{maxruns}   || 10,
+                                 maxruns        => $options->{maxruns}   || DEFAULT_MAXRUNS,
                                  extraruns      => $options->{extraruns} ||  0,
                                  formatter      => $formatter,
                                  _program_path  => $path,
-                                 texinputs_path => join(':', ('.', @$texinputs_path, '')),
+                                 texinputs_path => join(':', ('.', @{$texinputs_path}, '')),
                                  preprocessors  => [],
                                  postprocessors => \@postprocessors,
                                  stats          => { runs => {} } } );
-    
+
 }
 
 
@@ -251,7 +253,7 @@ sub run {
 
     # Check that the file exists
 
-    $self->throw(sprintf("file %s.tex does not exist", $self->basepath))
+    $self->throw(sprintf('file %s.tex does not exist', $self->basepath))
         unless -f $self->basepath . '.tex';
 
 
@@ -279,7 +281,7 @@ sub run {
                 $self->run_makeindex;
             }
             else {
-                last RUN unless $extraruns-- > 0;
+                last RUN if $extraruns-- < 0;
             }
             $run--;
         }
@@ -326,6 +328,7 @@ sub DESTROY {
     debug('DESTROY called') if $DEBUG;
 
     $self->cleanup();
+    return;
 }
 
 
@@ -350,7 +353,7 @@ sub run_latex {
     my $errors = "";
     my $logfile = $self->basepath . ".log";
 
-    if (my $fh = new IO::File $logfile, "r") {
+    if (my $fh = IO::File->new($logfile, "r")) {
         $self->reset_latex_required;
         my $matched = 0;
         while ( <$fh> ) {
@@ -393,7 +396,7 @@ sub run_latex {
                 debug('labels have changed') if $DEBUG;
                 $self->labels_changed(1);
             }
-            elsif ( /^Package longtable Warning: Table widths have changed\. Rerun LaTeX\./i) {
+            elsif ( /^Package longtable Warning: Table widths have changed[.] Rerun LaTeX[.]/i) {
                 debug('table widths changed') if $DEBUG;
                 $self->rerun_required(1);
             }
@@ -495,12 +498,12 @@ sub need_to_run_bibtex {
     my $self = shift;
 
     if ($self->undefined_citations) {
-        my $auxfile = $self->basepath . ".aux";
-        my $citfile = $self->basepath . ".cit";
-        my $cbkfile = $self->basepath . ".cbk";
+        my $auxfile = $self->basepath . '.aux';
+        my $citfile = $self->basepath . '.cit';
+        my $cbkfile = $self->basepath . '.cbk';
 
-        my $auxfh = new IO::File $auxfile, "r" or return;
-        my $citfh = new IO::File $citfile, "w"
+        my $auxfh = IO::File->new($auxfile, 'r') or return;
+        my $citfh = IO::File->new($citfile, 'w')
             or $self->throw("failed to open $citfile for output: $!");
 
         while ( <$auxfh> ) {
@@ -534,7 +537,7 @@ sub run_makeindex {
     my $basename = $self->basename;
     my @args;
     if (my $stylename = $self->options->{indexstyle}) {
-        push @args, "-s", $stylename;
+        push @args, '-s', $stylename;
     }
     if (my $index_options = $self->options->{indexoptions}) {
         push @args, $index_options;
@@ -659,7 +662,7 @@ sub run_command {
     # Set up localized environment variables in preparation for running the command
     # Note that the localized hash slice assignment of %ENV ensures that
     # the localization is done at the same block level as the system().
-    # Even doing something like  local($ENV{$_}) = $val for @{$envvars} 
+    # Even doing something like  local($ENV{$_}) = $val for @{$envvars}
     # puts the localization in a deeper level block so the previous value
     # is restored before the system() call is made.
 
@@ -700,7 +703,7 @@ sub copy_to_output {
         $$output = read_file($file);
     }
     else {
-        # see if we can rename the generate file to the desired output 
+        # see if we can rename the generated file to the desired output
         # file - this may fail, e.g. across filesystem boundaries (and
         # it's quite common for /tmp to be a separate filesystem
 
@@ -722,7 +725,7 @@ sub copy_to_output {
 #------------------------------------------------------------------------
 # _setup_tmpdir($dirname)
 #
-# create a temporary directory 
+# create a temporary directory
 #------------------------------------------------------------------------
 
 sub _setup_tmpdir {
@@ -736,12 +739,12 @@ sub _setup_tmpdir {
     }
     else {
         my $n = 0;
-        do { 
+        do {
             $dirname = File::Spec->catdir($tmp, "$DEFAULT_TMPDIR$$" . '_' . $n++);
         } while (-e $dirname);
         eval { mkpath($dirname, 0, 0700) };
     }
-    $class->throw("cannot create temporary directory: $@") 
+    $class->throw("cannot create temporary directory: $@")
         if $@;
 
     debug(sprintf("setting up temporary directory '%s'\n", $dirname)) if $DEBUG;
@@ -774,7 +777,7 @@ sub cleanup {
 #------------------------------------------------------------------------
 # $self->program_path($progname, $optional_value)
 #
-# 
+#
 #------------------------------------------------------------------------
 
 sub program_path {
@@ -932,7 +935,7 @@ for full details.
 
 =item C<texinputs>
 
-Specifies one or more directories to be searched for LaTeX files.  
+Specifies one or more directories to be searched for LaTeX files.
 
 =item C<DEBUG>
 

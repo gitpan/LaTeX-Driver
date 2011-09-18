@@ -14,7 +14,7 @@ select STDOUT;
 our $QUIET  = 0;
 our $ACCEPT = 0;
 our $WIN32  = ($^O eq 'MSWin32');
-our $MODVERSION = get_module_version();
+our $MODVERSION = sprintf("%.2f", get_module_version());
 
 #------------------------------------------------------------------------
 
@@ -50,7 +50,7 @@ our $PDF2PS    = ttprompt('pdf2ps path',    find_program($ENV{PATH}, "pdf2ps"));
 
 if (!$LATEX and !$PDFLATEX) {
     my $continue = ttprompt('You don\'t seem to have LaTeX installed.  Continue anyway?', 'N');
-    die("Aborting as LaTeX is not installed\n") unless uc($continue) =~ /^Y/;
+    warn("Aborting as LaTeX is not installed\n"), exit(0) unless uc($continue) =~ /^Y/;
 }
 
 fix_path_assignment(catfile('lib','LaTeX','Driver','Paths.pm'), 'latex',     $LATEX);
@@ -65,8 +65,8 @@ fix_path_assignment(catfile('lib','LaTeX','Driver','Paths.pm'), 'ps2pdf',    $PD
 #------------------------------------------------------------------------
 
 my %opts = (
-    'NAME'	       => 'LaTeX-Driver',
-    'VERSION_FROM' => 'lib/LaTeX/Driver.pm',
+    'NAME'         => 'LaTeX-Driver',
+    'VERSION'      => $MODVERSION,
     'EXE_FILES'    => [ 'scripts/latex2dvi', 'scripts/latex2pdf', 'scripts/latex2ps' ],
     'PMLIBDIRS'    => [ 'lib' ], 
     'PREREQ_PM'    => { 

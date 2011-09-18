@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-# $Id: 31-input-from-variable.t 63 2007-10-03 14:58:55Z andrew $
+# $Id: 31-input-from-variable.t 81 2011-09-18 09:19:03Z andrew $
 
 use strict;
 use blib;
@@ -22,9 +22,11 @@ my $drv = LaTeX::Driver->new( source      => \$source,
 			      output      => \$output,
 			      @DEBUGOPTS );
 
+my $systmpdir = $ENV{TMPDIR} || '/tmp';
+
 diag("Checking the formatting of a simple LaTeX document read from a variable");
 isa_ok($drv, 'LaTeX::Driver');
-like($drv->basedir, qr{^/tmp/$LaTeX::Driver::DEFAULT_TMPDIR\w+$}, "checking basedir");
+like($drv->basedir, qr{^$systmpdir/$LaTeX::Driver::DEFAULT_TMPDIR\w+$}, "checking basedir");
 is($drv->basename, $LaTeX::Driver::DEFAULT_DOCNAME, "checking basename");
 is($drv->basepath, File::Spec->catpath('', $drv->basedir, $LaTeX::Driver::DEFAULT_DOCNAME), "checking basepath");
 is($drv->formatter, 'latex', "formatter");
