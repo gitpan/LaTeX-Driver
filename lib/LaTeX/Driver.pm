@@ -9,7 +9,7 @@
 #   Andrew Ford <a.ford@ford-mason.co.uk>  (current maintainer)
 #
 # COPYRIGHT
-#   Copyright (C) 2009-2011 Ford & Mason Ltd.  All Rights Reserved.
+#   Copyright (C) 2009-2012 Ford & Mason Ltd.  All Rights Reserved.
 #   Copyright (C) 2006-2007 Andrew Ford.  All Rights Reserved.
 #   Portions Copyright (C) 1996-2006 Andy Wardley.  All Rights Reserved.
 #
@@ -21,7 +21,7 @@
 #
 #   * Extracted from the Template::Latex module (AF, 2007-09-10)
 #
-#   $Id: Driver.pm 81 2011-09-18 09:19:03Z andrew $
+#   $Id: Driver.pm 84 2012-08-30 20:19:25Z andrew $
 #========================================================================
 
 package LaTeX::Driver;
@@ -37,12 +37,13 @@ use File::Copy;                         # standard Perl class
 use File::Compare;                      # standard Perl class
 use File::Path;                         # standard Perl class
 use File::Slurp;
-use File::Spec;                 # from PathTools
-use IO::File;                   # from IO
+use File::Spec;                         # from PathTools
+use IO::File;                           # from IO
+use Readonly;
 
-use constant DEFAULT_MAXRUNS => 10;
+Readonly our $DEFAULT_MAXRUNS => 10;
 
-our $VERSION = 0.10;
+our $VERSION = 0.11;
 
 __PACKAGE__->mk_accessors( qw( basename basedir basepath options
                                source output tmpdir format
@@ -107,7 +108,7 @@ sub new {
     # Sanity check first - check we're running on a supported OS
 
     $class->throw("not available on $OSNAME")
-        if $OSNAME =~ /^(MacOS|os2|VMS)$/i;
+        if $OSNAME =~ m/ ^ ( MacOS | os2 | VMS ) $ /ix;
 
 
     # Examine the options - we need at least a source to work with and
@@ -122,7 +123,7 @@ sub new {
             if ref $source ne 'SCALAR';
     }
     else {
-        $source =~ s/(\.tex)$//;
+        $source =~ s/ ( [.] tex ) $ //x;
         $orig_ext = $1;
         $class->throw("source file ${source}.tex does not exist")
             unless -f $source or -f "${source}.tex";
@@ -136,11 +137,11 @@ sub new {
     my $output = $options->{output};
     my $format = lc($options->{format});
 
-    if ($output and !ref $output) {
+    if ($output and (!ref $output)) {
         my ($volume, $dir, $file) = File::Spec->splitpath($output);
         $class->throw("output directory $dir does not exist")
             unless $dir and -d $dir;
-        if (!$format and $file =~ /\.(\w+)$/) {
+        if ((!$format) and ($file =~ / [.] ( \w+ ) $ /x)) {
             $format = lc($1);
         }
     }
@@ -228,7 +229,7 @@ sub new {
                                  output         => $output,
                                  cleanup        => $cleanup || '',
                                  options        => $options,
-                                 maxruns        => $options->{maxruns}   || DEFAULT_MAXRUNS,
+                                 maxruns        => $options->{maxruns}   || $DEFAULT_MAXRUNS,
                                  extraruns      => $options->{extraruns} ||  0,
                                  formatter      => $formatter,
                                  _program_path  => $path,
@@ -356,47 +357,47 @@ sub run_latex {
     if (my $fh = IO::File->new($logfile, "r")) {
         $self->reset_latex_required;
         my $matched = 0;
-        while ( <$fh> ) {
-            debug($_) if $DEBUG >= 9;
+        while ( my $line = <$fh> ) {
+            debug($line) if $DEBUG >= 9;
             # TeX errors start with a "!" at the start of the
             # line, and followed several lines later by a line
             # designator of the form "l.nnn" where nnn is the line
             # number.  We make sure we pick up every /^!/ line,
             # and the first /^l.\d/ line after each /^!/ line.
-            if ( /^(!.*)/ ) {
+            if ( $line =~ /^(!.*)/ ) {
                 $errors .= $1 . "\n";
                 $matched = 1;
             }
-            elsif ( $matched && /^(l\.\d.*)/ ) {
+            elsif ( $matched && ($line =~ /^(l\.\d.*)/) ) {
                 $errors .= $1 . "\n";
                 $matched = 0;
             }
-            elsif ( /^Output written on (.*) \((\d+) pages, (\d+) bytes\)./ ) {
+            elsif ( $line =~ /^Output written on (.*) \((\d+) pages, (\d+) bytes\)./ ) {
                 my ($ofile, $pages, $bytes) = ($1, $2, $3);
                 $self->{stats}{pages} = $pages;
                 $self->{stats}{bytes} = $bytes;
             }
-            elsif ( /^LaTeX Warning: Reference .*? on page \d+ undefined/ ) {
+            elsif ( $line =~ /^LaTeX Warning: Reference .*? on page \d+ undefined/ ) {
                 $self->undefined_references(1);
             }
-            elsif ( /^LaTeX Warning: Citation .* on page \d+ undefined/ ) {
+            elsif ( $line =~ /^LaTeX Warning: Citation .* on page \d+ undefined/ ) {
                 debug('undefined citations detected') if $DEBUG;
                 $self->undefined_citations(1);
             }
-            elsif ( /LaTeX Warning: There were undefined references./i ) {
+            elsif ( $line =~ /LaTeX Warning: There were undefined references./i ) {
                 debug('undefined reference detected') if $DEBUG;
                 $self->undefined_references(1)
                     unless $self->undefined_citations;
             }
-            elsif ( /No file $basename\.(toc|lof|lot)/i ) {
+            elsif ( $line =~ /No file $basename\.(toc|lof|lot)/i ) {
                 debug("missing $1 file") if $DEBUG;
                 $self->undefined_references(1);
             }
-            elsif ( /^LaTeX Warning: Label\(s\) may have changed./i ) {
+            elsif ( $line =~ /^LaTeX Warning: Label\(s\) may have changed./i ) {
                 debug('labels have changed') if $DEBUG;
                 $self->labels_changed(1);
             }
-            elsif ( /^Package longtable Warning: Table widths have changed[.] Rerun LaTeX[.]/i) {
+            elsif ( $line =~ /^Package longtable Warning: Table widths have changed[.] Rerun LaTeX[.]/i) {
                 debug('table widths changed') if $DEBUG;
                 $self->rerun_required(1);
             }
@@ -404,7 +405,7 @@ sub run_latex {
             # A number of packages emit 'rerun' warnings (revtex4,
             # pdfmark, etc); this regexp catches most of those.
 
-            elsif ( /Rerun to get (.*) right/i) {
+            elsif ( $line =~ /Rerun to get (.*) right/i) {
                 debug("$1 changed") if $DEBUG;
                 $self->rerun_required(1);
             }
@@ -506,8 +507,8 @@ sub need_to_run_bibtex {
         my $citfh = IO::File->new($citfile, 'w')
             or $self->throw("failed to open $citfile for output: $!");
 
-        while ( <$auxfh> ) {
-            print($citfh $_) if /^\\citation/;
+        while ( my $line = <$auxfh> ) {
+            print($citfh $line) if $line =~ /^\\citation/;
         }
         undef $auxfh;
         undef $citfh;
@@ -735,14 +736,14 @@ sub _setup_tmpdir {
 
     if ($dirname and ($dirname ne 1)) {
         $dirname = File::Spec->catdir($tmp, $dirname);
-        eval { mkpath($dirname, 0, 0700) } unless -d $dirname;
+        eval { mkpath($dirname, 0, oct(700)) } unless -d $dirname;
     }
     else {
         my $n = 0;
         do {
             $dirname = File::Spec->catdir($tmp, "$DEFAULT_TMPDIR$$" . '_' . $n++);
         } while (-e $dirname);
-        eval { mkpath($dirname, 0, 0700) };
+        eval { mkpath($dirname, 0, oct(700)) };
     }
     $class->throw("cannot create temporary directory: $@")
         if $@;
@@ -765,7 +766,7 @@ sub cleanup {
     my $cleanup = $self->{cleanup};
     debug('cleanup called') if $DEBUG;
     if ($cleanup eq 'rmdir') {
-        if (!defined($what) or ($what ne 'none')) {
+        if ((!defined $what) or ($what ne 'none')) {
             debug('cleanup removing directory tree ' . $self->basedir) if $DEBUG;
             rmtree($self->basedir);
         }
@@ -797,13 +798,15 @@ sub program_path {
 #------------------------------------------------------------------------
 
 sub throw {
-    my $self = shift;
-    LaTeX::Driver::Exception->throw( error => join('', @_) );
+    my ($self, @args) = @_;
+    LaTeX::Driver::Exception->throw( error => join('', @args) );
+    return; # not needed - but satisfies perlcritic
 }
 
 sub debug {
-    print STDERR $DEBUGPREFIX || "[latex] ", @_;
-    print STDERR "\n" unless $_[-1] =~ / \n $ /mx;
+    my (@args) = @_;
+    print STDERR $DEBUGPREFIX || "[latex] ", @args;
+    print STDERR "\n" unless @args and ($args[-1] =~ / \n $ /mx);
     return;
 }
 
@@ -974,7 +977,7 @@ Format the document.
 =item C<stats()>
 
 Returns a reference to a hash containing stats about the processing
-tht was performed, containing the following items:
+that was performed, containing the following items:
 
 =over 4
 
@@ -1093,7 +1096,7 @@ explicitly tested for).
 
 =item no source specified
 
-The C<source> paramater should be specified as the name of a LaTeX
+The C<source> parameter should be specified as the name of a LaTeX
 source file or it should be a reference to a scalar variable holding
 the LaTeX source document.
 
@@ -1134,7 +1137,7 @@ containing the source document but it cannot.
 The module was trying to copy the specified source file to the
 temporary directory but couldn't.  Perhaps you specified the temporary
 directory name explicitly but the directory does not exist or is not
-writeable.
+writable.
 
 =back
 
@@ -1199,6 +1202,11 @@ location.
 C<LaTeX::Driver> depends on latex and friends being installed.
 
 
+=head1 INCOMPATIBILITIES
+
+None known.
+
+
 =head1 BUGS AND LIMITATIONS
 
 This is beta software - there are bound to be bugs and misfeatures.
@@ -1229,7 +1237,7 @@ paths.
 
 =item *
 
-Investigate pre- and post-processors and other auxilliary programs.
+Investigate pre- and post-processors and other auxiliary programs.
 
 =back
 
@@ -1293,7 +1301,7 @@ widespread yet.
 
 BiBTeX generates a bibliography for a LaTeX document.  It reads the
 top-level auxiliary file (C<.aux>) output during the running of latex and
-creates a bibliograpy file (C<.bbl>) that will be incorporated into the
+creates a bibliography file (C<.bbl>) that will be incorporated into the
 document on subsequent runs of latex.  It looks up the entries
 specified by \cite and \nocite commands in the bibliographic database
 files (.bib) specified by the \bibliography commands.  The entries are
@@ -1344,7 +1352,7 @@ Andrew Ford E<lt>a.ford@ford-mason.co.ukE<gt>
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright (C) 2009 Ford & Mason Ltd.  All Rights Reserved.
+Copyright (C) 2009-2011 Ford & Mason Ltd.  All Rights Reserved.
 
 Copyright (C) 2007 Andrew Ford.  All Rights Reserved.
 

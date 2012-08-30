@@ -83,7 +83,7 @@ my %opts = (
     },
 );
 
-if ($ExtUtils::MakeMaker::VERSION >= 5.43) {
+if (((my $version = $ExtUtils::MakeMaker::VERSION) =~ s/_//) >= 5.43) {
     $opts{ AUTHOR   } = 'Andrew Ford <a.ford@ford-mason.co.uk>';
     $opts{ ABSTRACT } = 'LaTeX Driver',
 }

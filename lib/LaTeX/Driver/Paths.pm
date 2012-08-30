@@ -9,7 +9,7 @@
 #   Andrew Ford    <a.ford@ford-mason.co.uk>
 #
 # COPYRIGHT
-#   Copyright (C) 2007 Andrew Ford.  All Rights Reserved.
+#   Copyright (C) 2007-2012 Andrew Ford.  All Rights Reserved.
 #
 #   This module is free software; you can redistribute it and/or
 #   modify it under the same terms as Perl itself.
@@ -18,7 +18,7 @@
 #   * Module extracted from Template::Latex module originally by Andy Wardley,
 #     September 2007
 #
-#   $Id: Paths.pm 45 2007-09-28 10:33:19Z andrew $
+#   $Id: Paths.pm 84 2012-08-30 20:19:25Z andrew $
 #========================================================================
  
 package LaTeX::Driver::Paths;
@@ -31,6 +31,7 @@ use warnings;
 our %program_path;
 
 $program_path{latex}     = '/usr/bin/latex';
+$program_path{xelatex}   = '/usr/bin/xelatex';
 $program_path{pdflatex}  = '/usr/bin/pdflatex';
 $program_path{bibtex}    = '/usr/bin/bibtex';
 $program_path{makeindex} = '/usr/bin/makeindex';
