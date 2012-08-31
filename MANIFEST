@@ -1,9 +1,12 @@
 MANIFEST			This list of files
+MANIFEST.SKIP
 README                          General information, installation, etc.
 INSTALL
 Changes
 TODO
 Makefile.PL                    
+MYMETA.yml
+MYMETA.json
 lib/LaTeX/Driver.pm
 lib/LaTeX/Driver/Paths.pm
 lib/LaTeX/Driver/FilterProgram.pm
@@ -49,3 +52,4 @@ scripts/latex2pdf
 scripts/latex2ps
 META.yml                                 Module meta-data (added by MakeMaker)
 META.json                                Module JSON meta-data (added by MakeMaker)
+SIGNATURE                                Public-key signature (added by MakeMaker)

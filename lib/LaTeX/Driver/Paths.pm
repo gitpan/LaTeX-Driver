@@ -18,7 +18,7 @@
 #   * Module extracted from Template::Latex module originally by Andy Wardley,
 #     September 2007
 #
-#   $Id: Paths.pm 84 2012-08-30 20:19:25Z andrew $
+#   $Id: Paths.pm 87 2012-08-31 19:10:26Z andrew $
 #========================================================================
  
 package LaTeX::Driver::Paths;
@@ -38,7 +38,7 @@ $program_path{makeindex} = '/usr/bin/makeindex';
 $program_path{dvips}     = '/usr/bin/dvips';
 $program_path{dvipdfm}   = '/usr/bin/dvipdfm';
 $program_path{pdf2ps}    = '/usr/bin/pdf2ps';
-$program_path{ps2pdf}    = '/usr/bin/pdf2ps';
+$program_path{ps2pdf}    = '/usr/bin/ps2pdf';
 
 1;
 

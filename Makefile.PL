@@ -60,7 +60,7 @@ fix_path_assignment(catfile('lib','LaTeX','Driver','Paths.pm'), 'makeindex', $MA
 fix_path_assignment(catfile('lib','LaTeX','Driver','Paths.pm'), 'dvips',     $DVIPS);
 fix_path_assignment(catfile('lib','LaTeX','Driver','Paths.pm'), 'dvipdfm',   $DVIPDFM);
 fix_path_assignment(catfile('lib','LaTeX','Driver','Paths.pm'), 'ps2pdf',    $PS2PDF);
-fix_path_assignment(catfile('lib','LaTeX','Driver','Paths.pm'), 'ps2pdf',    $PDF2PS);
+fix_path_assignment(catfile('lib','LaTeX','Driver','Paths.pm'), 'pdf2ps',    $PDF2PS);
 
 #------------------------------------------------------------------------
 
@@ -76,6 +76,7 @@ my %opts = (
 	'File::Slurp'      => 0,
 	'File::Spec'       => 0,
 	'IO::File'         => 0,
+        'Readonly'         => 0,
     },
     'dist'         => {
         'COMPRESS' => 'gzip',
@@ -88,7 +89,7 @@ if (((my $version = $ExtUtils::MakeMaker::VERSION) =~ s/_//) >= 5.43) {
     $opts{ ABSTRACT } = 'LaTeX Driver',
 }
 
-WriteMakefile(%opts);
+WriteMakefile((MM->can('signature_target') ? (SIGN => 1) : ()), %opts);
 
 
 #------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-# $Id: 10-simpledoc.t 62 2007-10-03 14:20:44Z andrew $
+# $Id: 10-simpledoc.t 85 2012-08-31 19:08:22Z andrew $
 
 use strict;
 use blib;
@@ -8,7 +8,7 @@ use File::Spec;
 use lib ("$Bin/../lib", "$Bin/lib");
 use Data::Dumper;
 
-use Test::More tests => 22;
+use Test::More tests => 26;
 use Test::LaTeX::Driver;
 use LaTeX::Driver;
 
@@ -75,6 +75,18 @@ ok($drv->run, "formatting $docname to PDF, via PostScript");
 ok(-f ($drv->basepath . '.pdf'),  "PDF file exists");
 ok(-f ($drv->basepath . '.ps'),   "PostScript file exists");
 ok(-f ($drv->basepath . '.dvi'),  "DVI file exists");
+
+tidy_directory($basedir, $docname, $debug);
+
+diag("Checking the generation of PostScript, via PDF");
+$drv = LaTeX::Driver->new( source => $docpath,
+			   format => 'ps(pdf)',
+			   @DEBUGOPTS );
+
+ok($drv->run, "formatting $docname to PDF, via PostScript");
+ok(-f ($drv->basepath . '.pdf'),  "PDF file exists");
+ok(-f ($drv->basepath . '.ps'),   "PostScript file exists");
+ok(! -f ($drv->basepath . '.dvi'),  "DVI file does not exists");
 
 
 

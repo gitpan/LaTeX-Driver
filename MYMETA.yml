@@ -1,13 +1,13 @@
 ---
-abstract: unknown
+abstract: 'LaTeX Driver'
 author:
-  - unknown
+  - 'Andrew Ford <a.ford@ford-mason.co.uk>'
 build_requires:
   ExtUtils::MakeMaker: 0
 configure_requires:
   ExtUtils::MakeMaker: 0
-dynamic_config: 1
-generated_by: 'ExtUtils::MakeMaker version 6.62, CPAN::Meta::Converter version 2.120921'
+dynamic_config: 0
+generated_by: 'ExtUtils::MakeMaker version 6.48, CPAN::Meta::Converter version 2.120921'
 license: unknown
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
@@ -25,4 +25,4 @@ requires:
   File::Spec: 0
   IO::File: 0
   Readonly: 0
-version: 0.12
+version: 0.08

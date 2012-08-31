@@ -21,7 +21,7 @@
 #
 #   * Extracted from the Template::Latex module (AF, 2007-09-10)
 #
-#   $Id: Driver.pm 84 2012-08-30 20:19:25Z andrew $
+#   $Id: Driver.pm 86 2012-08-31 19:09:10Z andrew $
 #========================================================================
 
 package LaTeX::Driver;
@@ -43,7 +43,7 @@ use Readonly;
 
 Readonly our $DEFAULT_MAXRUNS => 10;
 
-our $VERSION = 0.11;
+our $VERSION = 0.12;
 
 __PACKAGE__->mk_accessors( qw( basename basedir basepath options
                                source output tmpdir format
