@@ -1,5 +1,5 @@
 This file contains message digests of all files listed in MANIFEST,
-signed via the Module::Signature module, version 0.68.
+signed via the Module::Signature module, version 0.73.
 
 To verify the content in this distribution, first make sure you have
 Module::Signature installed, then type:
@@ -14,20 +14,17 @@ not run its Makefile.PL or Build.PL.
 -----BEGIN PGP SIGNED MESSAGE-----
 Hash: SHA1
 
-SHA1 d24bc03d438f47eee47cd7d2730b7719a269236f Changes
+SHA1 78dada023f06ecf0c8290773c5924948b490ec4c Changes
 SHA1 328b693546018d9238c1e55be9d89b1c284fecca INSTALL
-SHA1 812525e98d558764c5156faa35704785551752cd MANIFEST
-SHA1 821169136567c66f7fb722ff91973e5220f0a0bc MANIFEST.SKIP
-SHA1 f443e541daf5e24d3f49099f1ef8760927d1740f META.json
-SHA1 339ab8bbf78f3af8498dd024daf919036704c8bc META.yml
-SHA1 86181090efbbb55fc850e4f859afc68d9e8a3252 MYMETA.json
-SHA1 e0fb3d6c4d468ffabb6e5bf39d254d1e56f773b8 MYMETA.yml
-SHA1 7b1108351d71c00d06e7589bda4fbcfe6b98d0ce Makefile.PL
+SHA1 7315850dc7deec938f59fb5dd0dde7932d42c982 MANIFEST
+SHA1 89d972c4f4e3b57551cd01db584dbc22480e37ed MANIFEST.SKIP
+SHA1 8fb98a63b0d83aecc0500f497b0b8337e8da05c2 META.json
+SHA1 a8c99dfd74a77f3262ee98998b85a10b36cb5924 META.yml
+SHA1 08dae7f084fe7de287230cf42c79834c4ac6d38d Makefile.PL
 SHA1 33c7504e98cde38c83746c687dc2077b09737d9a README
 SHA1 43cc4bf327a208bf8061c11fff72bff9d5b4df01 TODO
-SHA1 866d3588e19e245f8043ade50fd4c5617b73c146 lib/LaTeX/Driver.pm
+SHA1 a4f853fe2dfaba6d52a16cf5dc5882e1dbeb58d1 lib/LaTeX/Driver.pm
 SHA1 e26ef8d90b30db5513a215e72001abeb01657127 lib/LaTeX/Driver/FilterProgram.pm
-SHA1 09c213d441188bcf900e94f20fa05199abdb8977 lib/LaTeX/Driver/Paths.pm
 SHA1 69a4a43829aa933a9afc9e181ff857fb51024150 scripts/README
 SHA1 50902ae2567fccf72478d7e4ef3e28388f917ef0 scripts/latex2dvi
 SHA1 c98d5172f0c305dffdd0507d2c875df6876129ec scripts/latex2pdf
@@ -35,7 +32,7 @@ SHA1 a9751b0d62766e422818b90c855dca31c01cb20d scripts/latex2ps
 SHA1 848fde3e4ecdd2775cc1e89e0de77e2e7444c83f t/00-basic.t
 SHA1 c01a256dbea4351d4c8a0c1b9358334abb01d703 t/01-errors.t
 SHA1 4a6d997f278e4860a6a4913a291b88c6e3fcc9b4 t/02-brokendocs.t
-SHA1 797b4638c7f81f63419c4572ef715e4b4223d6f3 t/10-simpledoc.t
+SHA1 0e5730fbd9bcbef59db00d0716b223cf477ebd03 t/10-simpledoc.t
 SHA1 a9336058206bd7f07e97ec341ccb3a6c41d26b8d t/11-references.t
 SHA1 723783e60d11abc1ec4c8e80eb3db48ba13978d7 t/12-includes.t
 SHA1 366caaa4a5fc4d276690f56df8a6ff765e73fbb6 t/13-tableofcontents.t
@@ -49,7 +46,7 @@ SHA1 5af4b015dad6fd6d6cb65d0698787af7c1ebbc65 t/91-pod.t
 SHA1 456a35112c5c8ce00dc02aee833b9037c058d7b8 t/92-pod-coverage.t
 SHA1 ec6c237d74d7a41e3a0acbf96cc9e7cab06b6ad8 t/93-perl-critic.t
 SHA1 322dc5748f4a09370203046a971bb966b80fae93 t/README
-SHA1 7e9925023cf974da7ce22a235c7404816cf035bd t/lib/Test/LaTeX/Driver.pm
+SHA1 7745b9c1aba1e408de3a16be01bbdfef3d17c93e t/lib/Test/LaTeX/Driver.pm
 SHA1 a51f4c00a17b22f3b28a1b147b717294eebd4307 t/perlcriticrc
 SHA1 dff66d1dc61435c81d570b0350d0bb167401f6ea t/testdata/00-common/testinc2.tex
 SHA1 5416b42f3816f079d5d8608915658fc40312e172 t/testdata/01-errors/01-errors.tex
@@ -69,9 +66,9 @@ SHA1 830301be9ec87cc2628e7e6279b0f75a397bd4cd t/testdata/20-complexdoc/testinc.t
 SHA1 947b3e994be2609ad3441646b7db52418e348a4a t/testdata/30-output-to-variable/30-output-to-variable.tex
 SHA1 947b3e994be2609ad3441646b7db52418e348a4a t/testdata/31-input-from-variable/31-input-from-variable.tex
 -----BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
+Version: GnuPG v1.4.15 (GNU/Linux)
 
-iEYEARECAAYFAlBBCTgACgkQ6Ftp4RHHKhuGXACfSvbOg2T30G6JIhhh9T9y6I00
-JzwAn1je/dTMhDFQJfWOzSaMtbvqkdGB
-=gwn1
+iEYEARECAAYFAlJvbjwACgkQ6Ftp4RHHKhsOdQCfYxIWwugQY71lcYWxjaVMTSYG
+yMoAnReBrc++Erb67zZtkyGG2C9rjIuJ
+=vyjx
 -----END PGP SIGNATURE-----

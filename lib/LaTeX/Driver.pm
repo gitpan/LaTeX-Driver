@@ -1,28 +1,19 @@
-#========================================================================
-#
 # LaTeX::Driver
 #
 # DESCRIPTION
 #   Driver module that encapsulates the details of formatting a LaTeX document
 #
 # AUTHOR
-#   Andrew Ford <a.ford@ford-mason.co.uk>  (current maintainer)
+#   Andrew Ford <andrew@ford-mason.co.uk>  (current maintainer)
 #
 # COPYRIGHT
-#   Copyright (C) 2009-2012 Ford & Mason Ltd.  All Rights Reserved.
+#   Copyright (C) 2009-2013 Ford & Mason Ltd.  All Rights Reserved.
 #   Copyright (C) 2006-2007 Andrew Ford.  All Rights Reserved.
 #   Portions Copyright (C) 1996-2006 Andy Wardley.  All Rights Reserved.
 #
 #   This module is free software; you can redistribute it and/or
 #   modify it under the same terms as Perl itself.
 #
-# HISTORY
-#   * Added test for reruns required by longtable environments changing (AF, 2009-01-19)
-#
-#   * Extracted from the Template::Latex module (AF, 2007-09-10)
-#
-#   $Id: Driver.pm 86 2012-08-31 19:09:10Z andrew $
-#========================================================================
 
 package LaTeX::Driver;
 
@@ -41,12 +32,17 @@ use File::Spec;                         # from PathTools
 use IO::File;                           # from IO
 use Readonly;
 
+BEGIN {
+    require IPC::ShellCmd
+        unless $OSNAME eq 'MSWin32';
+}
+
 Readonly our $DEFAULT_MAXRUNS => 10;
 
-our $VERSION = 0.12;
+our $VERSION = 0.20_02;
 
 __PACKAGE__->mk_accessors( qw( basename basedir basepath options
-                               source output tmpdir format
+                               source output tmpdir format timeout stderr
                                formatter preprocessors postprocessors _program_path
                                maxruns extraruns stats texinputs_path
                                undefined_citations undefined_references
@@ -58,13 +54,12 @@ our $DEBUGPREFIX;
 
 # LaTeX executable paths set at installation time by the Makefile.PL
 
-eval { require LaTeX::Driver::Paths };
+our @PROCESSORS      = qw(xelatex lulaatex pdflatex latex);
+our @AUXILLARY_PROGS = qw(bibtex makeindex);
+our @POSTPROCESSORS  = qw(dvips dvipdfm ps2pdf pdf2ps);
+our @PROGRAM_NAMES   = (@PROCESSORS, @AUXILLARY_PROGS, @POSTPROCESSORS);
 
-our @PROGRAM_NAMES = qw(latex pdflatex bibtex makeindex dvips dvipdfm ps2pdf pdf2ps);
-our %program_path;
-
-$program_path{$_} = $LaTeX::Driver::Paths::program_path{$_} || "/usr/bin/$_"
-    for @PROGRAM_NAMES;
+our %program_path = map { ( $_ => $_ ) } @PROGRAM_NAMES;
 
 our @LOGFILE_EXTS = qw( log blg ilg );
 our @TMPFILE_EXTS = qw( aux log lot toc bbl ind idx cit cbk ibk );
@@ -81,10 +76,12 @@ our %FORMATTERS  = (
     dvi        => [ 'latex' ],
     ps         => [ 'latex', 'dvips' ],
     postscript => [ 'latex', 'dvips' ],
-    pdf        => [ 'pdflatex' ],
-    'pdf(dvi)' => [ 'latex', 'dvipdfm' ],
-    'pdf(ps)'  => [ 'latex', 'dvips', 'ps2pdf' ],
-    'ps(pdf)'  => [ 'pdflatex', 'pdf2ps' ],
+    pdf        => [ 'xelatex' ],
+    'pdf(pdflatex)' => [ 'pdflatex' ],
+    'pdf(xelatex)'  => [ 'xelatex' ],
+    'pdf(dvi)'      => [ 'latex', 'dvipdfm' ],
+    'pdf(ps)'       => [ 'latex', 'dvips', 'ps2pdf' ],
+    'ps(pdf)'       => [ 'pdflatex', 'pdf2ps' ],
 );
 
 
@@ -220,6 +217,7 @@ sub new {
     $texinputs_path = [ split(/:/, $texinputs_path) ] unless ref $texinputs_path;
 
 
+
     # construct and return the object
 
     return $class->SUPER::new( { basename       => $basename,
@@ -231,6 +229,8 @@ sub new {
                                  options        => $options,
                                  maxruns        => $options->{maxruns}   || $DEFAULT_MAXRUNS,
                                  extraruns      => $options->{extraruns} ||  0,
+                                 timeout        => $options->{timeout},
+                                 capture_stderr => $options->{capture_stderr} || 0,
                                  formatter      => $formatter,
                                  _program_path  => $path,
                                  texinputs_path => join(':', ('.', @{$texinputs_path}, '')),
@@ -271,20 +271,14 @@ sub run {
   RUN:
     foreach my $run (1 .. $maxruns) {
 
-        if ($self->need_to_run_latex) {
+        if ($self->need_to_run_latex or $extraruns-- > 0) {
             $self->run_latex;
         }
-        else {
-            if ($self->need_to_run_bibtex) {
-                $self->run_bibtex;
-            }
-            elsif ($self->need_to_run_makeindex) {
-                $self->run_makeindex;
-            }
-            else {
-                last RUN if $extraruns-- < 0;
-            }
-            $run--;
+        elsif ($self->need_to_run_bibtex) {
+            $self->run_bibtex;
+        }
+        elsif ($self->need_to_run_makeindex) {
+            $self->run_makeindex;
         }
     }
 
@@ -310,8 +304,8 @@ sub run {
 
     # Return any output
 
-    $self->copy_to_output if $self->output;
-        ;
+    $self->copy_to_output
+        if $self->output;
 
     return 1;
 }
@@ -543,7 +537,7 @@ sub run_makeindex {
     if (my $index_options = $self->options->{indexoptions}) {
         push @args, $index_options;
     }
-    my $exitcode = $self->run_command(makeindex => join(" ", (@args, $basename)));
+    my $exitcode = $self->run_command(makeindex => [@args, $basename]);
 
     # TODO: extract meaningful error message from .ilg file
 
@@ -593,7 +587,7 @@ sub run_dvips {
 
     my $basename = $self->basename;
 
-    my $exitstatus = $self->run_command(dvips => "$basename -o");
+    my $exitstatus = $self->run_command(dvips => [$basename, '-o']);
 
     $self->throw("dvips $basename failed ($exitstatus)")
         if $exitstatus;
@@ -612,7 +606,7 @@ sub run_ps2pdf {
 
     my $basename = $self->basename;
 
-    my $exitstatus = $self->run_command(ps2pdf => sprintf("%s.ps %s.pdf", $basename, $basename));
+    my $exitstatus = $self->run_command(ps2pdf => ["$basename.ps", "$basename.pdf"]);
 
     $self->throw("ps2pdf $basename failed ($exitstatus)")
         if $exitstatus;
@@ -631,7 +625,7 @@ sub run_pdf2ps {
 
     my $basename = $self->basename;
 
-    my $exitstatus = $self->run_command(pdf2ps => sprintf("%s.pdf %s.ps", $basename, $basename));
+    my $exitstatus = $self->run_command(pdf2ps => ["$basename.pdf", "$basename.ps"]);
 
     $self->throw("pdf2ps $basename failed ($exitstatus)")
         if $exitstatus;
@@ -648,6 +642,9 @@ sub run_pdf2ps {
 
 sub run_command {
     my ($self, $progname, $args, $envvars) = @_;
+
+    $args = [ $args ]
+        unless ref $args;
 
     # get the full path to the executable for this output format
     my $program = $self->program_path($progname)
@@ -670,21 +667,30 @@ sub run_command {
     $envvars ||= "TEXINPUTS";
     $envvars = [ $envvars ] unless ref $envvars;
     local(@ENV{@{$envvars}}) = map { $self->texinputs_path } @{$envvars};
-
-    # Format the command appropriately for our O/S
-    if ($OSNAME eq 'MSWin32') {
-        $cmd = "cmd /c \"cd $dir && $program $args\"";
-    }
-    else {
-        $args = "'$args'" if $args =~ / \\ /mx;
-        $cmd  = "cd $dir; $program $args 1>$null 2>$null 0<$null";
-    }
-
     $self->stats->{runs}{$progname}++;
     debug("running '$program $args'") if $DEBUG;
 
-    my $exitstatus = system($cmd);
-    return $exitstatus;
+    # Format the command appropriately for our O/S
+
+    my $exit_status;
+    if ($OSNAME eq 'MSWin32') {
+        $args = join(' ', @$args);
+        $cmd  = "cmd /c \"cd $dir && $program $args\"";
+        $exit_status = system($cmd);
+    }
+    else {
+        $args = "'$args'" if $args =~ / \\ /mx;
+        my $isc = IPC::ShellCmd->new([$program, @$args])
+            ->working_dir($dir)
+            ->run;
+        $isc->add_timers($self->timeout, 'TERM')
+            if $self->timeout;
+        $self->{stderr} .= $isc->stderr
+            if $self->{capture_stderr};
+        $exit_status = $isc->status;
+    }
+
+    return $exit_status;
 }
 
 
@@ -850,6 +856,12 @@ result of the processing up to a dozen or more intermediate files are
 created.  These can be removed with the C<cleanup> method.
 
 
+=head1 SOURCE
+
+Source code can be found at L<https://github.com/fordmason/LaTeX-Driver>
+
+Feel free to fork and add your stuff!
+
 =head1 SUBROUTINES/METHODS
 
 =over 4
@@ -914,6 +926,11 @@ The maximum number of runs of the formatter program (defaults to 10).
 
 The number of additional runs of the formatter program after the document has stabilized.
 
+=item C<timeout>
+
+Specifies a timeout in seconds within which any commands spawned
+should finish.  
+
 =item C<cleanup>
 
 Specifies whether temporary files and directories should be
@@ -973,6 +990,10 @@ The constructor method returns a driver object.
 
 Format the document.
 
+=item C<stderr>
+
+Holds the error output from subcommands, if the C<-capture_stderr>
+option was passed to C<new()>.
 
 =item C<stats()>
 
@@ -1137,7 +1158,7 @@ containing the source document but it cannot.
 The module was trying to copy the specified source file to the
 temporary directory but couldn't.  Perhaps you specified the temporary
 directory name explicitly but the directory does not exist or is not
-writable.
+writeable.
 
 =back
 
