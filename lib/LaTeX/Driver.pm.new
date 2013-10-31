@@ -1,28 +1,35 @@
+#========================================================================
+#
 # LaTeX::Driver
 #
 # DESCRIPTION
 #   Driver module that encapsulates the details of formatting a LaTeX document
 #
 # AUTHOR
-#   Andrew Ford <andrew@ford-mason.co.uk>  (current maintainer)
+#   Andrew Ford <a.ford@ford-mason.co.uk>  (current maintainer)
 #
 # COPYRIGHT
-#   Copyright (C) 2009-2013 Ford & Mason Ltd.  All Rights Reserved.
+#   Copyright (C) 2009-2011 Ford & Mason Ltd.  All Rights Reserved.
 #   Copyright (C) 2006-2007 Andrew Ford.  All Rights Reserved.
 #   Portions Copyright (C) 1996-2006 Andy Wardley.  All Rights Reserved.
 #
 #   This module is free software; you can redistribute it and/or
 #   modify it under the same terms as Perl itself.
 #
+# HISTORY
+#   * Added test for reruns required by longtable environments changing (AF, 2009-01-19)
+#
+#   * Extracted from the Template::Latex module (AF, 2007-09-10)
+#
+#   $Id: Driver.pm 76 2009-01-19 13:39:01Z andrew $
+#========================================================================
 
 package LaTeX::Driver;
 
 use strict;
 use warnings;
 
-use 5.008005;
-
-use parent 'Class::Accessor';
+use base 'Class::Accessor';
 use Cwd;                                # from PathTools
 use English qw( -no_match_vars );       # standard Perl class
 use Exception::Class ( 'LaTeX::Driver::Exception' );
@@ -32,19 +39,13 @@ use File::Path;                         # standard Perl class
 use File::Slurp;
 use File::Spec;                         # from PathTools
 use IO::File;                           # from IO
-use Readonly;
 
-BEGIN {
-    require IPC::ShellCmd
-        unless $OSNAME eq 'MSWin32';
-}
+use constant DEFAULT_MAXRUNS => 10;
 
-Readonly our $DEFAULT_MAXRUNS => 10;
-
-our $VERSION = "0.20_03";
+our $VERSION = 0.10;
 
 __PACKAGE__->mk_accessors( qw( basename basedir basepath options
-                               source output tmpdir format timeout stderr
+                               source output tmpdir format
                                formatter preprocessors postprocessors _program_path
                                maxruns extraruns stats texinputs_path
                                undefined_citations undefined_references
@@ -56,12 +57,13 @@ our $DEBUGPREFIX;
 
 # LaTeX executable paths set at installation time by the Makefile.PL
 
-our @PROCESSORS      = qw(xelatex lulaatex pdflatex latex);
-our @AUXILLARY_PROGS = qw(bibtex makeindex);
-our @POSTPROCESSORS  = qw(dvips dvipdfm ps2pdf pdf2ps);
-our @PROGRAM_NAMES   = (@PROCESSORS, @AUXILLARY_PROGS, @POSTPROCESSORS);
+eval { require LaTeX::Driver::Paths };
 
-our %program_path = map { ( $_ => $_ ) } @PROGRAM_NAMES;
+our @PROGRAM_NAMES = qw(latex pdflatex bibtex makeindex dvips dvipdfm ps2pdf pdf2ps);
+our %program_path;
+
+map { $program_path{$_} = $LaTeX::Driver::Paths::program_path{$_} || "/usr/bin/$_" } @PROGRAM_NAMES;
+
 
 our @LOGFILE_EXTS = qw( log blg ilg );
 our @TMPFILE_EXTS = qw( aux log lot toc bbl ind idx cit cbk ibk );
@@ -78,12 +80,10 @@ our %FORMATTERS  = (
     dvi        => [ 'latex' ],
     ps         => [ 'latex', 'dvips' ],
     postscript => [ 'latex', 'dvips' ],
-    pdf        => [ 'xelatex' ],
-    'pdf(pdflatex)' => [ 'pdflatex' ],
-    'pdf(xelatex)'  => [ 'xelatex' ],
-    'pdf(dvi)'      => [ 'latex', 'dvipdfm' ],
-    'pdf(ps)'       => [ 'latex', 'dvips', 'ps2pdf' ],
-    'ps(pdf)'       => [ 'pdflatex', 'pdf2ps' ],
+    pdf        => [ 'pdflatex' ],
+    'pdf(dvi)' => [ 'latex', 'dvipdfm' ],
+    'pdf(ps)'  => [ 'latex', 'dvips', 'ps2pdf' ],
+    'ps(pdf)'  => [ 'pdflatex', 'pdf2ps' ],
 );
 
 
@@ -107,7 +107,7 @@ sub new {
     # Sanity check first - check we're running on a supported OS
 
     $class->throw("not available on $OSNAME")
-        if $OSNAME =~ m/ ^ ( MacOS | os2 | VMS ) $ /ix;
+        if $OSNAME =~ /^(MacOS|os2|VMS)$/i;
 
 
     # Examine the options - we need at least a source to work with and
@@ -122,7 +122,7 @@ sub new {
             if ref $source ne 'SCALAR';
     }
     else {
-        $source =~ s/ ( [.] tex ) $ //x;
+        $source =~ s/(\.tex)$//;
         $orig_ext = $1;
         $class->throw("source file ${source}.tex does not exist")
             unless -f $source or -f "${source}.tex";
@@ -136,11 +136,11 @@ sub new {
     my $output = $options->{output};
     my $format = lc($options->{format});
 
-    if ($output and (!ref $output)) {
+    if ($output and !ref $output) {
         my ($volume, $dir, $file) = File::Spec->splitpath($output);
         $class->throw("output directory $dir does not exist")
             unless $dir and -d $dir;
-        if ((!$format) and ($file =~ / [.] ( \w+ ) $ /x)) {
+        if (!$format and $file =~ /\.(\w+)$/) {
             $format = lc($1);
         }
     }
@@ -219,7 +219,6 @@ sub new {
     $texinputs_path = [ split(/:/, $texinputs_path) ] unless ref $texinputs_path;
 
 
-
     # construct and return the object
 
     return $class->SUPER::new( { basename       => $basename,
@@ -229,10 +228,8 @@ sub new {
                                  output         => $output,
                                  cleanup        => $cleanup || '',
                                  options        => $options,
-                                 maxruns        => $options->{maxruns}   || $DEFAULT_MAXRUNS,
+                                 maxruns        => $options->{maxruns}   || DEFAULT_MAXRUNS,
                                  extraruns      => $options->{extraruns} ||  0,
-                                 timeout        => $options->{timeout},
-                                 capture_stderr => $options->{capture_stderr} || 0,
                                  formatter      => $formatter,
                                  _program_path  => $path,
                                  texinputs_path => join(':', ('.', @{$texinputs_path}, '')),
@@ -273,14 +270,20 @@ sub run {
   RUN:
     foreach my $run (1 .. $maxruns) {
 
-        if ($self->need_to_run_latex or $extraruns-- > 0) {
+        if ($self->need_to_run_latex) {
             $self->run_latex;
         }
-        elsif ($self->need_to_run_bibtex) {
-            $self->run_bibtex;
-        }
-        elsif ($self->need_to_run_makeindex) {
-            $self->run_makeindex;
+        else {
+            if ($self->need_to_run_bibtex) {
+                $self->run_bibtex;
+            }
+            elsif ($self->need_to_run_makeindex) {
+                $self->run_makeindex;
+            }
+            else {
+                last RUN if $extraruns-- < 0;
+            }
+            $run--;
         }
     }
 
@@ -306,8 +309,8 @@ sub run {
 
     # Return any output
 
-    $self->copy_to_output
-        if $self->output;
+    $self->copy_to_output if $self->output;
+        ;
 
     return 1;
 }
@@ -539,7 +542,7 @@ sub run_makeindex {
     if (my $index_options = $self->options->{indexoptions}) {
         push @args, $index_options;
     }
-    my $exitcode = $self->run_command(makeindex => [@args, $basename]);
+    my $exitcode = $self->run_command(makeindex => join(" ", (@args, $basename)));
 
     # TODO: extract meaningful error message from .ilg file
 
@@ -589,7 +592,7 @@ sub run_dvips {
 
     my $basename = $self->basename;
 
-    my $exitstatus = $self->run_command(dvips => [$basename, '-o']);
+    my $exitstatus = $self->run_command(dvips => "$basename -o");
 
     $self->throw("dvips $basename failed ($exitstatus)")
         if $exitstatus;
@@ -608,7 +611,7 @@ sub run_ps2pdf {
 
     my $basename = $self->basename;
 
-    my $exitstatus = $self->run_command(ps2pdf => ["$basename.ps", "$basename.pdf"]);
+    my $exitstatus = $self->run_command(ps2pdf => sprintf("%s.ps %s.pdf", $basename, $basename));
 
     $self->throw("ps2pdf $basename failed ($exitstatus)")
         if $exitstatus;
@@ -627,7 +630,7 @@ sub run_pdf2ps {
 
     my $basename = $self->basename;
 
-    my $exitstatus = $self->run_command(pdf2ps => ["$basename.pdf", "$basename.ps"]);
+    my $exitstatus = $self->run_command(pdf2ps => sprintf("%s.pdf %s.ps", $basename, $basename));
 
     $self->throw("pdf2ps $basename failed ($exitstatus)")
         if $exitstatus;
@@ -644,9 +647,6 @@ sub run_pdf2ps {
 
 sub run_command {
     my ($self, $progname, $args, $envvars) = @_;
-
-    $args = [ $args ]
-        unless ref $args;
 
     # get the full path to the executable for this output format
     my $program = $self->program_path($progname)
@@ -669,30 +669,21 @@ sub run_command {
     $envvars ||= "TEXINPUTS";
     $envvars = [ $envvars ] unless ref $envvars;
     local(@ENV{@{$envvars}}) = map { $self->texinputs_path } @{$envvars};
-    $self->stats->{runs}{$progname}++;
-    debug("running '$program $args'") if $DEBUG;
 
     # Format the command appropriately for our O/S
-
-    my $exit_status;
     if ($OSNAME eq 'MSWin32') {
-        $args = join(' ', @$args);
-        $cmd  = "cmd /c \"cd $dir && $program $args\"";
-        $exit_status = system($cmd);
+        $cmd = "cmd /c \"cd $dir && $program $args\"";
     }
     else {
         $args = "'$args'" if $args =~ / \\ /mx;
-        my $isc = IPC::ShellCmd->new([$program, @$args])
-            ->working_dir($dir)
-            ->run;
-        $isc->add_timers($self->timeout, 'TERM')
-            if $self->timeout;
-        $self->{stderr} .= $isc->stderr
-            if $self->{capture_stderr};
-        $exit_status = $isc->status;
+        $cmd  = "cd $dir; $program $args 1>$null 2>$null 0<$null";
     }
 
-    return $exit_status;
+    $self->stats->{runs}{$progname}++;
+    debug("running '$program $args'") if $DEBUG;
+
+    my $exitstatus = system($cmd);
+    return $exitstatus;
 }
 
 
@@ -744,14 +735,14 @@ sub _setup_tmpdir {
 
     if ($dirname and ($dirname ne 1)) {
         $dirname = File::Spec->catdir($tmp, $dirname);
-        eval { mkpath($dirname, 0, oct(700)) } unless -d $dirname;
+        eval { mkpath($dirname, 0, 0700) } unless -d $dirname;
     }
     else {
         my $n = 0;
         do {
             $dirname = File::Spec->catdir($tmp, "$DEFAULT_TMPDIR$$" . '_' . $n++);
         } while (-e $dirname);
-        eval { mkpath($dirname, 0, oct(700)) };
+        eval { mkpath($dirname, 0, 0700) };
     }
     $class->throw("cannot create temporary directory: $@")
         if $@;
@@ -774,7 +765,7 @@ sub cleanup {
     my $cleanup = $self->{cleanup};
     debug('cleanup called') if $DEBUG;
     if ($cleanup eq 'rmdir') {
-        if ((!defined $what) or ($what ne 'none')) {
+        if (!defined($what) or ($what ne 'none')) {
             debug('cleanup removing directory tree ' . $self->basedir) if $DEBUG;
             rmtree($self->basedir);
         }
@@ -806,15 +797,13 @@ sub program_path {
 #------------------------------------------------------------------------
 
 sub throw {
-    my ($self, @args) = @_;
-    LaTeX::Driver::Exception->throw( error => join('', @args) );
-    return; # not needed - but satisfies perlcritic
+    my $self = shift;
+    LaTeX::Driver::Exception->throw( error => join('', @_) );
 }
 
 sub debug {
-    my (@args) = @_;
-    print STDERR $DEBUGPREFIX || "[latex] ", @args;
-    print STDERR "\n" unless @args and ($args[-1] =~ / \n $ /mx);
+    print STDERR $DEBUGPREFIX || "[latex] ", @_;
+    print STDERR "\n" unless $_[-1] =~ / \n $ /mx;
     return;
 }
 
@@ -857,12 +846,6 @@ directory part of C<basename>, or in the current directory.  As a
 result of the processing up to a dozen or more intermediate files are
 created.  These can be removed with the C<cleanup> method.
 
-
-=head1 SOURCE
-
-Source code can be found at L<https://github.com/fordmason/LaTeX-Driver>
-
-Feel free to fork and add your stuff!
 
 =head1 SUBROUTINES/METHODS
 
@@ -928,11 +911,6 @@ The maximum number of runs of the formatter program (defaults to 10).
 
 The number of additional runs of the formatter program after the document has stabilized.
 
-=item C<timeout>
-
-Specifies a timeout in seconds within which any commands spawned
-should finish.  
-
 =item C<cleanup>
 
 Specifies whether temporary files and directories should be
@@ -992,10 +970,6 @@ The constructor method returns a driver object.
 
 Format the document.
 
-=item C<stderr>
-
-Holds the error output from subcommands, if the C<-capture_stderr>
-option was passed to C<new()>.
 
 =item C<stats()>
 
@@ -1160,7 +1134,7 @@ containing the source document but it cannot.
 The module was trying to copy the specified source file to the
 temporary directory but couldn't.  Perhaps you specified the temporary
 directory name explicitly but the directory does not exist or is not
-writeable.
+writable.
 
 =back
 
@@ -1223,11 +1197,6 @@ location.
 =head1 DEPENDENCIES
 
 C<LaTeX::Driver> depends on latex and friends being installed.
-
-
-=head1 INCOMPATIBILITIES
-
-None known.
 
 
 =head1 BUGS AND LIMITATIONS
