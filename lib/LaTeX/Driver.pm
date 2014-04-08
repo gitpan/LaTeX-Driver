@@ -38,7 +38,7 @@ use File::pushd;                        # temporary cwd changes
 
 Readonly our $DEFAULT_MAXRUNS => 10;
 
-our $VERSION = "0.20.05";
+our $VERSION = "0.20";
 
 __PACKAGE__->mk_accessors( qw( basename basedir basepath options
                                source output tmpdir format timeout stderr
@@ -820,7 +820,7 @@ LaTeX::Driver - Latex driver
 
 =head1 VERSION
 
-This document describes version 0.20.05 of C<LaTeX::Driver>.
+This document describes version 0.20 of C<LaTeX::Driver>.
 
 =head1 SYNOPSIS
 

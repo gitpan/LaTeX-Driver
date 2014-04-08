@@ -35,4 +35,4 @@ requires:
 resources:
   license: http://dev.perl.org/licenses/
   repository: https://github.com/fordmason/LaTeX-Driver.git
-version: 0.20.05
+version: 0.20
