@@ -3,13 +3,13 @@ abstract: 'Latex driver'
 author:
   - 'Andrew Ford <a.ford@ford-mason.co.uk>'
 build_requires:
-  ExtUtils::MakeMaker: 6.59
+  ExtUtils::MakeMaker: 6.6302
   Test::More: 0.88
 configure_requires:
-  ExtUtils::MakeMaker: 6.59
+  ExtUtils::MakeMaker: 6.6302
 distribution_type: module
 dynamic_config: 1
-generated_by: 'Module::Install version 1.06'
+generated_by: 'Module::Install version 1.04'
 license: perl
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
@@ -26,13 +26,13 @@ requires:
   Exception::Class: 0
   File::Slurp: 0
   File::Spec: 0
+  File::pushd: 0
   Getopt::Long: 0
   IO::File: 0
-  IPC::ShellCmd: 0.002
   Readonly: 0
   parent: 0
   perl: 5.8.5
 resources:
   license: http://dev.perl.org/licenses/
   repository: https://github.com/fordmason/LaTeX-Driver.git
-version: 0.20_03
+version: 0.20.05
