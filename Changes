@@ -1,5 +1,8 @@
 Revision history for the LaTeX::Driver module                -*- indented-text -*-
 
+0.200.1 2014-04-10
+    - Fixed stale dependency (unused) in Test::LaTeX::Driver
+
 0.20  2014-04-09
     - Removed IPC::ShellCmd dependency since newer versions not on CPAN
     - Fixed Win32 support 
