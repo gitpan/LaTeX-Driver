@@ -1,5 +1,9 @@
 Revision history for the LaTeX::Driver module                -*- indented-text -*-
 
+0.200.3 2014-04-11
+    - xelatex tests now optional because they add too many external
+      dependencies
+
 0.200.1 2014-04-10
     - Fixed stale dependency (unused) in Test::LaTeX::Driver
 

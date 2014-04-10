@@ -38,7 +38,7 @@ use File::pushd;                        # temporary cwd changes
 
 Readonly our $DEFAULT_MAXRUNS => 10;
 
-our $VERSION = "0.200.2";
+our $VERSION = "0.200.3";
 
 __PACKAGE__->mk_accessors( qw( basename basedir basepath options
                                source output tmpdir format timeout stderr
