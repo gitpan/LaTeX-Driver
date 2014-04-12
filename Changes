@@ -1,5 +1,11 @@
 Revision history for the LaTeX::Driver module                -*- indented-text -*-
 
+0.200.4 2014-04-12
+    - Disabled bibtex tests by default due to frequently not found LaTex
+      sty not found.
+
+    - Disabled t/30 and t/31 unless dvips is found
+
 0.200.3 2014-04-11
     - xelatex tests now optional because they add too many external
       dependencies
